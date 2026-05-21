@@ -1,7 +1,7 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState, useEffect } from 'react';
 import { 
     FileText, 
-    MousePointer2, 
     Clock, 
     Plus, 
     Eye, 
@@ -12,9 +12,11 @@ import {
 import UploadModal from '@/components/Admin/UploadModal';
 import UploadConfirmationModal from '@/components/Admin/UploadConfirmationModal';
 import EditDocumentModal from '@/components/Admin/EditDocumentModal';
+import PDFModal from '@/components/Admin/PDFModal';
 import { useAuth } from '@/hooks/useAuth';
 import { useDocuments } from '@/hooks/useDocuments';
 import { useNotifications } from '@/hooks/useNotifications';
+import { usePortalSettingsContext } from '@/contexts/PortalSettingsContext';
 //import { userNotificationsService } from '@/services/userNotificationsService';
 import { auditService } from '@/services/auditService';
 
@@ -22,8 +24,11 @@ const Dashboard: React.FC = () => {
     // Authentication
     const { user, loading: authLoading, error: authError } = useAuth();
 
+    // Portal Settings (para última atualização)
+    const { settings: portalSettings } = usePortalSettingsContext();
+
     // Documents
-    const { documents, upload, delete: deleteDoc, update: updateDoc, list: listDocuments } = useDocuments();
+    const { documents, upload, delete: deleteDoc, update: updateDoc, list: listDocuments, getURL } = useDocuments();
 
     // Notifications
     const { create: createNotification } = useNotifications();
@@ -38,13 +43,53 @@ const Dashboard: React.FC = () => {
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [editingDocument, setEditingDocument] = useState<any>(null);
     const [isEditProcessing, setIsEditProcessing] = useState(false);
+
+    // View PDF Modal State
+    const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+    const [selectedPdfUrl, setSelectedPdfUrl] = useState<string>('');
+    const [selectedPdfTitle, setSelectedPdfTitle] = useState<string>('');
     
-    // Timestamp for last upload
-    const [lastUploadTime, setLastUploadTime] = useState<number | null>(() => {
-        const saved = localStorage.getItem('lastDocumentUpload');
-        return saved ? parseInt(saved) : null;
-    });
+    // Obter timestamp da última atualização (documentos + portal settings)
+    const getLastUpdateTimestamp = (): number | null => {
+        let latestTimestamp: number | null = null;
+
+        // Verificar o documento mais recente
+        if (documents && documents.length > 0) {
+            const sortedByUpdate = [...documents].sort((a, b) => {
+                const timeB = b.updatedAt ? (b.updatedAt instanceof Date ? b.updatedAt.getTime() : typeof b.updatedAt === 'number' ? b.updatedAt : new Date(b.updatedAt as any).getTime()) : 0;
+                const timeA = a.updatedAt ? (a.updatedAt instanceof Date ? a.updatedAt.getTime() : typeof a.updatedAt === 'number' ? a.updatedAt : new Date(a.updatedAt as any).getTime()) : 0;
+                return timeB - timeA;
+            });
+            
+            const newestDoc = sortedByUpdate[0];
+            if (newestDoc?.updatedAt) {
+                const docTime = newestDoc.updatedAt instanceof Date 
+                    ? newestDoc.updatedAt.getTime() 
+                    : typeof newestDoc.updatedAt === 'number' 
+                    ? newestDoc.updatedAt 
+                    : new Date(newestDoc.updatedAt as any).getTime();
+                latestTimestamp = docTime;
+            }
+        }
+
+        // Verificar portal settings
+        if (portalSettings?.updated_at) {
+            let settingsTime: number | null = null;
+            if (typeof portalSettings.updated_at === 'object' && 'toMillis' in portalSettings.updated_at) {
+                settingsTime = (portalSettings.updated_at as any).toMillis();
+            } else if (typeof portalSettings.updated_at === 'string') {
+                settingsTime = new Date(portalSettings.updated_at).getTime();
+            }
+            
+            if (settingsTime && (!latestTimestamp || settingsTime > latestTimestamp)) {
+                latestTimestamp = settingsTime;
+            }
+        }
+        
+        return latestTimestamp;
+    };
     
+    const [lastUploadTime, setLastUploadTime] = useState<number | null>(getLastUpdateTimestamp());
     const [currentTime, setCurrentTime] = useState(() => Date.now());
 
     // Load documents on mount
@@ -52,11 +97,46 @@ const Dashboard: React.FC = () => {
         listDocuments();
     }, [listDocuments]);
 
+    // Sincronizar lastUploadTime com documentos e portalSettings
+    useEffect(() => {
+        const timestamp = getLastUpdateTimestamp();
+        if (timestamp) {
+            setLastUploadTime(timestamp);
+            console.log('🔄 [Dashboard] Última atualização sincronizada:', new Date(timestamp));
+        }
+    }, [documents, portalSettings?.updated_at]);
+
     useEffect(() => {
         const interval = setInterval(() => {
             setCurrentTime(Date.now());
         }, 30000);
         return () => clearInterval(interval);
+    }, []);
+
+    // Listener para atualizações de configurações do portal
+    useEffect(() => {
+        const handleSettingsUpdate = (event: Event) => {
+            const customEvent = event as CustomEvent;
+            const updated = customEvent.detail;
+            if (updated?.updated_at) {
+                const timestamp = (() => {
+                    if (typeof updated.updated_at === 'object' && 'toMillis' in updated.updated_at) {
+                        return (updated.updated_at as any).toMillis();
+                    }
+                    if (typeof updated.updated_at === 'string') {
+                        return new Date(updated.updated_at).getTime();
+                    }
+                    return null;
+                })();
+                if (timestamp) {
+                    setLastUploadTime(timestamp);
+                    console.log('🔄 [Dashboard] Configurações atualizadas em tempo real:', new Date(timestamp));
+                }
+            }
+        };
+
+        window.addEventListener('portalSettingsUpdated', handleSettingsUpdate);
+        return () => window.removeEventListener('portalSettingsUpdated', handleSettingsUpdate);
     }, []);
     // Mapa de categorias
     const categoryMap: Record<string, string> = {
@@ -111,14 +191,19 @@ const Dashboard: React.FC = () => {
 
     // Document management
     const sortedDocuments = [...documents].sort((a, b) => {
-        const timeB = b.updatedAt ? (b.updatedAt instanceof Date ? b.updatedAt.getTime() : b.updatedAt) : 0;
-        const timeA = a.updatedAt ? (a.updatedAt instanceof Date ? a.updatedAt.getTime() : a.updatedAt) : 0;
+        // Usar updatedAt se disponível, caso contrário usar uploadedAt
+        const timeB = (b.updatedAt ? (b.updatedAt instanceof Date ? b.updatedAt.getTime() : typeof b.updatedAt === 'number' ? b.updatedAt : new Date(b.updatedAt as any).getTime()) : (b.uploadedAt instanceof Date ? b.uploadedAt.getTime() : typeof b.uploadedAt === 'number' ? b.uploadedAt : new Date(b.uploadedAt as any).getTime())) || 0;
+        const timeA = (a.updatedAt ? (a.updatedAt instanceof Date ? a.updatedAt.getTime() : typeof a.updatedAt === 'number' ? a.updatedAt : new Date(a.updatedAt as any).getTime()) : (a.uploadedAt instanceof Date ? a.uploadedAt.getTime() : typeof a.uploadedAt === 'number' ? a.uploadedAt : new Date(a.uploadedAt as any).getTime())) || 0;
         return timeB - timeA;
     });
     const recentDocs = sortedDocuments.slice(0, 5);
 
     const getPublicDocumentsCount = () => {
         return documents.filter(doc => doc.public).length;
+    };
+
+    const getPrivateDocumentsCount = () => {
+        return documents.filter(doc => !doc.public).length;
     };
 
     // Upload handler with Firebase
@@ -148,10 +233,8 @@ const Dashboard: React.FC = () => {
                 setUploadedDocumentName(uploadData.nome);
                 setShowConfirmation(true);
                 
-                // Update timestamp
-                const now = Date.now();
-                setLastUploadTime(now);
-                localStorage.setItem('lastDocumentUpload', now.toString());
+                // O timestamp agora é sincronizado via Firestore quando o usuário faz alterações
+                // na página de configurações, então não precisamos mais atualizar localStorage aqui
 
                 // Registra no histórico de auditoria (inclui notificação protegida automaticamente)
                 await auditService.addLog(
@@ -165,6 +248,9 @@ const Dashboard: React.FC = () => {
                     type: 'success',
                     actionUrl: '/admin/transparency',
                 });
+
+                // Recarregar documentos para atualizar a lista com o novo documento
+                await listDocuments();
             }
         } catch (err) {
             console.error('Upload error:', err);
@@ -193,6 +279,33 @@ const Dashboard: React.FC = () => {
     const closeEditModal = () => {
         setIsEditModalOpen(false);
         setEditingDocument(null);
+    };
+
+    // Função para visualizar documento
+    const handleView = async (documentId: string, name: string) => {
+        try {
+            console.log('📄 [Dashboard] Buscando URL do documento:', documentId);
+            const url = await getURL(documentId);
+            
+            if (!url) {
+                alert("Este documento não possui um link de visualização disponível.");
+                return;
+            }
+            
+            setSelectedPdfUrl(url);
+            setSelectedPdfTitle(name);
+            setIsViewModalOpen(true);
+            console.log('✅ [Dashboard] URL obtida com sucesso:', url);
+        } catch (err) {
+            console.error('❌ [Dashboard] Erro ao obter URL do documento:', err);
+            alert("Erro ao carregar documento. Tente novamente.");
+        }
+    };
+
+    const closeViewModal = () => {
+        setIsViewModalOpen(false);
+        setSelectedPdfUrl('');
+        setSelectedPdfTitle('');
     };
 
     const handleEditDocument = async (updatedData: {
@@ -296,10 +409,10 @@ const Dashboard: React.FC = () => {
                     trend="Ativos no site"
                 />
                 <MetricCard 
-                    title="Cliques no PIX" 
-                    value="89" 
-                    icon={<MousePointer2 size={24} className="text-emerald-600 dark:text-emerald-400" />} 
-                    trend="Este mês"
+                    title="Documentos Privados" 
+                    value={getPrivateDocumentsCount().toString()} 
+                    icon={<FileText size={24} className="text-purple-600 dark:text-purple-400" />} 
+                    trend="Restritos aos membros"
                 />
                 <MetricCard 
                     title="Última Atualização" 
@@ -352,8 +465,12 @@ const Dashboard: React.FC = () => {
                                     </td>
                                     <td className="px-4 sm:px-6 py-4">
                                         <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-all">
-                                            <button className="p-2 text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg" title="Visualizar">
+                                            <button
+                                                onClick={() => handleView(doc.id, doc.name)}
+                                                className="p-2 text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg" 
+                                                title="Visualizar">
                                                 <Eye size={18} />
+ 
                                             </button>
                                             <button 
                                                 onClick={() => openEditModal(doc)}
@@ -364,7 +481,7 @@ const Dashboard: React.FC = () => {
                                             </button>
                                             <button 
                                                 onClick={() => deleteDoc(doc.id)}
-                                                className="p-2 text-slate-400 hover:text-red-600 dark:hover:text-red-400 transition-colors hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg" 
+                                                className="p-2 text-slate-400 hover:text-red-600 dark:hover:text-red-400 transition-colors hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg cursor-pointer" 
                                                 title="Excluir"
                                             >
                                                 <Trash2 size={18} />
@@ -401,19 +518,23 @@ const Dashboard: React.FC = () => {
                                             {doc.public ? 'Público' : 'Privado'}
                                         </span>
                                         <div className="flex gap-2">
-                                            <button className="p-2 text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg" title="Visualizar">
+                                            <button 
+                                                onClick={() => handleView(doc.id, doc.name)}
+                                                className="p-2 text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg cursor-pointer" 
+                                                title="Visualizar"
+                                            >
                                                 <Eye size={16} />
                                             </button>
                                             <button 
                                                 onClick={() => openEditModal(doc)}
-                                                className="p-2 text-slate-400 hover:text-amber-600 dark:hover:text-amber-400 transition-colors hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-lg" 
+                                                className="p-2 text-slate-400 hover:text-amber-600 dark:hover:text-amber-400 transition-colors hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-lg cursor-pointer" 
                                                 title="Editar"
                                             >
                                                 <Edit2 size={16} />
                                             </button>
                                             <button 
                                                 onClick={() => deleteDoc(doc.id)}
-                                                className="p-2 text-slate-400 hover:text-red-600 dark:hover:text-red-400 transition-colors hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg" 
+                                                className="p-2 text-slate-400 hover:text-red-600 dark:hover:text-red-400 transition-colors hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg cursor-pointer" 
                                                 title="Excluir"
                                             >
                                                 <Trash2 size={16} />
@@ -455,6 +576,13 @@ const Dashboard: React.FC = () => {
             onClose={closeEditModal}
             onSave={handleEditDocument}
             isLoading={isEditProcessing}
+        />
+
+        <PDFModal 
+            isOpen={isViewModalOpen}
+            onClose={closeViewModal}
+            pdfUrl={selectedPdfUrl}
+            title={selectedPdfTitle}
         />
         </div>
     );

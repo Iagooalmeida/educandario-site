@@ -168,7 +168,27 @@ const TransparencyAdmin: React.FC = () => {
             setDocumentToDelete(null);
         } catch (err) {
             console.error('Delete failed:', err);
-            const errorMessage = err instanceof Error ? err.message : 'Erro ao deletar documento. Tente novamente.';
+            
+            // Detectar erro de permissão do RLS
+            let errorMessage = 'Erro ao deletar documento. Tente novamente.';
+            
+            if (err instanceof Error) {
+                const errorStr = err.message.toLowerCase();
+                
+                // Verificar se é erro de permissão (RLS do Supabase)
+                if (errorStr.includes('permission denied') || 
+                    errorStr.includes('row-level security') || 
+                    errorStr.includes('rls') ||
+                    errorStr.includes('unauthorized') ||
+                    errorStr.includes('não autorizado')) {
+                    errorMessage = '🔒 Você não tem permissão para excluir este documento, pois ele foi enviado por outro administrador. Entre em contato com o responsável pelo upload.';
+                } else if (errorStr.includes('not found')) {
+                    errorMessage = '❌ Documento não encontrado. Ele pode ter sido excluído recentemente.';
+                } else {
+                    errorMessage = err.message;
+                }
+            }
+            
             setDeleteError(errorMessage);
         } finally {
             setDeleteLoading(false);
