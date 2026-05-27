@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { User, Mail, Shield, Check, AlertCircle, Upload, Trash2 } from 'lucide-react';
 import { useUserProfile } from '@/hooks/useUserProfile';
 import { useAuditLogs } from '@/hooks/useAuditLogs';
@@ -14,6 +14,16 @@ const ProfileSection: React.FC = () => {
         displayName: profile?.displayName || '',
         email: profile?.email || ''
     });
+
+    // Sincronizar dados do profile quando ele muda
+    useEffect(() => {
+        if (profile) {
+            setEditingProfileData({
+                displayName: profile.displayName || '',
+                email: profile.email || ''
+            });
+        }
+    }, [profile]);
 
     const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -73,16 +83,15 @@ const ProfileSection: React.FC = () => {
     };
 
     const handleSaveProfile = async () => {
-        if (!editingProfileData.displayName.trim() || !editingProfileData.email.trim()) {
-            console.error('Todos os campos são obrigatórios');
+        if (!editingProfileData.displayName.trim()) {
+            console.error('O nome é obrigatório');
             return;
         }
         
         try {
             clearProfileError();
             await updateProfile({
-                displayName: editingProfileData.displayName,
-                email: editingProfileData.email
+                displayName: editingProfileData.displayName
             });
             await fetchLogs();
             setProfileSuccess(true);
@@ -192,17 +201,13 @@ const ProfileSection: React.FC = () => {
                             />
                         </div>
 
-                        {/* Email */}
+                        {/* Email - Somente leitura */}
                         <div className="space-y-2">
                             <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">E-mail</label>
-                            <input
-                                type="email"
-                                name="email"
-                                value={editingProfileData.email}
-                                onChange={handleProfileChange}
-                                className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-950/50 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
-                                placeholder="seu@email.com"
-                            />
+                            <div className="w-full px-4 py-2.5 bg-slate-100 dark:bg-slate-950/50 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-600 dark:text-slate-400 flex items-center">
+                                {editingProfileData.email || 'Não informado'}
+                            </div>
+                            <p className="text-xs text-slate-500 dark:text-slate-400">O e-mail não pode ser alterado aqui. Entre em contato com o administrador se precisar atualizar seu e-mail.</p>
                         </div>
 
                         {/* Botões de Ação */}

@@ -1,3 +1,5 @@
+import { getAuth, updateProfile as firebaseUpdateProfile, onAuthStateChanged } from 'firebase/auth';
+import { auth } from '@/services/firebase/config';
 import { auditService } from './auditService';
 
 interface UserProfileData {
@@ -11,25 +13,71 @@ class UserProfileService {
     private readonly STORAGE_KEY = 'adminProfile';
     private readonly AVATAR_KEY = 'adminAvatar';
 
-    private defaultProfile: UserProfileData = {
-        displayName: 'Administrator',
-        email: 'educandarionsa.adm@gmail.com',
-        avatar: null,
-        role: 'Admin'
-    };
+    private getCurrentUser(): Promise<any> {
+        return new Promise((resolve) => {
+            // Primeiro tenta obter o usuário de forma síncrona
+            const syncUser = getAuth().currentUser;
+            if (syncUser) {
+                resolve(syncUser);
+                return;
+            }
+
+            // Se não houver usuário, aguarda por mudanças de estado
+            const unsubscribe = onAuthStateChanged(getAuth(), (user) => {
+                unsubscribe();
+                resolve(user);
+            });
+        });
+    }
 
     async getProfile(): Promise<UserProfileData> {
         try {
+            // Obter usuário do Firebase com listener
+            const currentUser = await this.getCurrentUser();
+            
+            console.log('📋 [DEBUG] currentUser:', currentUser);
+            console.log('📋 [DEBUG] currentUser.displayName:', currentUser?.displayName);
+            console.log('📋 [DEBUG] currentUser.email:', currentUser?.email);
+            
+            // Se há um usuário autenticado, usar seus dados
+            if (currentUser) {
+                const avatar = localStorage.getItem(this.AVATAR_KEY);
+                const profileFromStorage = localStorage.getItem(this.STORAGE_KEY);
+                const storedRole = profileFromStorage ? JSON.parse(profileFromStorage).role : 'Admin';
+
+                const profile = {
+                    displayName: currentUser.displayName || 'Usuário',
+                    email: currentUser.email || '',
+                    avatar: avatar,
+                    role: storedRole || 'Admin'
+                };
+                
+                console.log('✅ [DEBUG] Perfil carregado do Firebase:', profile);
+                return profile;
+            }
+
+            // Se não há usuário, retornar dados do localStorage ou padrão
             const profile = localStorage.getItem(this.STORAGE_KEY);
             const avatar = localStorage.getItem(this.AVATAR_KEY);
             
             if (profile) {
                 return { ...JSON.parse(profile), avatar };
             }
-            return { ...this.defaultProfile, avatar };
+
+            return {
+                displayName: '',
+                email: '',
+                avatar: null,
+                role: 'Admin'
+            };
         } catch (error) {
-            console.error('Erro ao carregar perfil do usuário', error);
-            return { ...this.defaultProfile, avatar: null };
+            console.error('❌ Erro ao carregar perfil do usuário', error);
+            return {
+                displayName: '',
+                email: '',
+                avatar: null,
+                role: 'Admin'
+            };
         }
     }
 
@@ -37,6 +85,15 @@ class UserProfileService {
         try {
             const current = await this.getProfile();
             const updated = { ...current, ...updates };
+            
+            // Atualizar no Firebase se há usuário autenticado
+            const currentUser = await this.getCurrentUser();
+            
+            if (currentUser && updates.displayName) {
+                await firebaseUpdateProfile(currentUser, {
+                    displayName: updates.displayName
+                });
+            }
             
             // Não salvar avatar aqui (é handled separadamente)
             const { avatar, ...profileData } = updated;

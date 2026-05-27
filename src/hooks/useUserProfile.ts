@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { getAuth, onAuthStateChanged } from 'firebase/auth';
 import { userProfileService } from '@/services/userProfileService';
 
 interface UserProfileData {
@@ -29,7 +30,14 @@ export const useUserProfile = () => {
     }, []);
 
     useEffect(() => {
-        fetchProfile();
+        // Listener para mudanças de autenticação
+        const unsubscribe = onAuthStateChanged(getAuth(), (user) => {
+            console.log('🔐 Auth state changed:', user?.email);
+            // Quando o estado de autenticação muda, recarregar o perfil
+            fetchProfile();
+        });
+
+        return () => unsubscribe();
     }, [fetchProfile]);
 
     // Atualizar perfil

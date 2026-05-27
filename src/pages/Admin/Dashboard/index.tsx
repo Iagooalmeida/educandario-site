@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import UploadModal from '@/components/Admin/UploadModal';
 import UploadConfirmationModal from '@/components/Admin/UploadConfirmationModal';
+import ConfirmDeleteModal from '@/components/Admin/ConfirmDeleteModal';
 import EditDocumentModal from '@/components/Admin/EditDocumentModal';
 import PDFModal from '@/components/Admin/PDFModal';
 import { useAuth } from '@/hooks/useAuth';
@@ -48,6 +49,12 @@ const Dashboard: React.FC = () => {
     const [isViewModalOpen, setIsViewModalOpen] = useState(false);
     const [selectedPdfUrl, setSelectedPdfUrl] = useState<string>('');
     const [selectedPdfTitle, setSelectedPdfTitle] = useState<string>('');
+
+    // Delete Modal State
+    const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+    const [documentToDelete, setDocumentToDelete] = useState<string | null>(null);
+    const [deleteLoading, setDeleteLoading] = useState(false);
+    const [deleteError, setDeleteError] = useState<string | null>(null);
     
     // Obter timestamp da última atualização (documentos + portal settings)
     const getLastUpdateTimestamp = (): number | null => {
@@ -56,8 +63,8 @@ const Dashboard: React.FC = () => {
         // Verificar o documento mais recente
         if (documents && documents.length > 0) {
             const sortedByUpdate = [...documents].sort((a, b) => {
-                const timeB = b.updatedAt ? (b.updatedAt instanceof Date ? b.updatedAt.getTime() : typeof b.updatedAt === 'number' ? b.updatedAt : new Date(b.updatedAt as any).getTime()) : 0;
-                const timeA = a.updatedAt ? (a.updatedAt instanceof Date ? a.updatedAt.getTime() : typeof a.updatedAt === 'number' ? a.updatedAt : new Date(a.updatedAt as any).getTime()) : 0;
+                const timeB = b.updatedAt ? (b.updatedAt instanceof Date ? b.updatedAt.getTime() : typeof b.updatedAt === 'number' ? b.updatedAt : new Date(b.updatedAt as string).getTime()) : 0;
+                const timeA = a.updatedAt ? (a.updatedAt instanceof Date ? a.updatedAt.getTime() : typeof a.updatedAt === 'number' ? a.updatedAt : new Date(a.updatedAt as string).getTime()) : 0;
                 return timeB - timeA;
             });
             
@@ -67,7 +74,7 @@ const Dashboard: React.FC = () => {
                     ? newestDoc.updatedAt.getTime() 
                     : typeof newestDoc.updatedAt === 'number' 
                     ? newestDoc.updatedAt 
-                    : new Date(newestDoc.updatedAt as any).getTime();
+                    : new Date(newestDoc.updatedAt as string).getTime();
                 latestTimestamp = docTime;
             }
         }
@@ -76,7 +83,7 @@ const Dashboard: React.FC = () => {
         if (portalSettings?.updated_at) {
             let settingsTime: number | null = null;
             if (typeof portalSettings.updated_at === 'object' && 'toMillis' in portalSettings.updated_at) {
-                settingsTime = (portalSettings.updated_at as any).toMillis();
+                settingsTime = (portalSettings.updated_at as { toMillis(): number }).toMillis();
             } else if (typeof portalSettings.updated_at === 'string') {
                 settingsTime = new Date(portalSettings.updated_at).getTime();
             }
@@ -104,6 +111,16 @@ const Dashboard: React.FC = () => {
             setLastUploadTime(timestamp);
             console.log('🔄 [Dashboard] Última atualização sincronizada:', new Date(timestamp));
         }
+
+        // Também verificar localStorage para sincronização com Transparency
+        const storedTimestamp = localStorage.getItem('documentsLatestTimestamp');
+        if (storedTimestamp) {
+            const parsedTimestamp = parseInt(storedTimestamp, 10);
+            if (parsedTimestamp > 0 && (!timestamp || parsedTimestamp > timestamp)) {
+                setLastUploadTime(parsedTimestamp);
+                console.log('💾 [Dashboard] Sincronizado com localStorage na montagem:', new Date(parsedTimestamp));
+            }
+        }
     }, [documents, portalSettings?.updated_at]);
 
     useEffect(() => {
@@ -111,6 +128,50 @@ const Dashboard: React.FC = () => {
             setCurrentTime(Date.now());
         }, 30000);
         return () => clearInterval(interval);
+    }, []);
+
+    // Listener para atualizações de documentos em tempo real (vindas de Transparency)
+    useEffect(() => {
+        const handleDocumentsUpdate = (event: Event) => {
+            console.log('🔔 [Dashboard] Recebeu evento documentsUpdated');
+            const customEvent = event as CustomEvent;
+            const timestamp = customEvent.detail?.timestamp;
+            console.log('🔔 [Dashboard] Timestamp do evento:', timestamp, timestamp ? new Date(timestamp) : 'undefined');
+            if (timestamp && timestamp > 0) {
+                setLastUploadTime(timestamp);
+                console.log('✅ [Dashboard] Atualizado com sucesso:', new Date(timestamp));
+            } else {
+                console.log('❌ [Dashboard] Timestamp inválido, ignorando');
+            }
+        };
+
+        window.addEventListener('documentsUpdated', handleDocumentsUpdate);
+        console.log('📌 [Dashboard] Listener de documentsUpdated registrado');
+        return () => {
+            window.removeEventListener('documentsUpdated', handleDocumentsUpdate);
+            console.log('📌 [Dashboard] Listener de documentsUpdated removido');
+        };
+    }, []);
+
+    // Listener para mudanças em localStorage (sincronização entre abas)
+    useEffect(() => {
+        const handleStorageChange = (event: StorageEvent) => {
+            if (event.key === 'documentsLatestTimestamp' && event.newValue) {
+                const timestamp = parseInt(event.newValue, 10);
+                console.log('💾 [Dashboard] Mudança detectada em localStorage:', timestamp, new Date(timestamp));
+                if (timestamp && timestamp > 0) {
+                    setLastUploadTime(timestamp);
+                    console.log('✅ [Dashboard] Atualizado via localStorage:', new Date(timestamp));
+                }
+            }
+        };
+
+        window.addEventListener('storage', handleStorageChange);
+        console.log('💾 [Dashboard] Listener de storage registrado');
+        return () => {
+            window.removeEventListener('storage', handleStorageChange);
+            console.log('💾 [Dashboard] Listener de storage removido');
+        };
     }, []);
 
     // Listener para atualizações de configurações do portal
@@ -121,7 +182,7 @@ const Dashboard: React.FC = () => {
             if (updated?.updated_at) {
                 const timestamp = (() => {
                     if (typeof updated.updated_at === 'object' && 'toMillis' in updated.updated_at) {
-                        return (updated.updated_at as any).toMillis();
+                        return (updated.updated_at as { toMillis(): number }).toMillis();
                     }
                     if (typeof updated.updated_at === 'string') {
                         return new Date(updated.updated_at).getTime();
@@ -192,8 +253,8 @@ const Dashboard: React.FC = () => {
     // Document management
     const sortedDocuments = [...documents].sort((a, b) => {
         // Usar updatedAt se disponível, caso contrário usar uploadedAt
-        const timeB = (b.updatedAt ? (b.updatedAt instanceof Date ? b.updatedAt.getTime() : typeof b.updatedAt === 'number' ? b.updatedAt : new Date(b.updatedAt as any).getTime()) : (b.uploadedAt instanceof Date ? b.uploadedAt.getTime() : typeof b.uploadedAt === 'number' ? b.uploadedAt : new Date(b.uploadedAt as any).getTime())) || 0;
-        const timeA = (a.updatedAt ? (a.updatedAt instanceof Date ? a.updatedAt.getTime() : typeof a.updatedAt === 'number' ? a.updatedAt : new Date(a.updatedAt as any).getTime()) : (a.uploadedAt instanceof Date ? a.uploadedAt.getTime() : typeof a.uploadedAt === 'number' ? a.uploadedAt : new Date(a.uploadedAt as any).getTime())) || 0;
+        const timeB = (b.updatedAt ? (b.updatedAt instanceof Date ? b.updatedAt.getTime() : typeof b.updatedAt === 'number' ? b.updatedAt : new Date(b.updatedAt as string).getTime()) : (b.uploadedAt instanceof Date ? b.uploadedAt.getTime() : typeof b.uploadedAt === 'number' ? b.uploadedAt : new Date(b.uploadedAt as string).getTime())) || 0;
+        const timeA = (a.updatedAt ? (a.updatedAt instanceof Date ? a.updatedAt.getTime() : typeof a.updatedAt === 'number' ? a.updatedAt : new Date(a.updatedAt as string).getTime()) : (a.uploadedAt instanceof Date ? a.uploadedAt.getTime() : typeof a.uploadedAt === 'number' ? a.uploadedAt : new Date(a.uploadedAt as string).getTime())) || 0;
         return timeB - timeA;
     });
     const recentDocs = sortedDocuments.slice(0, 5);
@@ -222,7 +283,7 @@ const Dashboard: React.FC = () => {
         setIsUploadProcessing(true);
         try {
             const result = await upload(uploadData.arquivo, {
-                name: uploadData.arquivo.name,
+                name: uploadData.nome,
                 type: 'pdf',
                 category: categoryMap[uploadData.categoria] || uploadData.categoria,
                 public: uploadData.visibilidade === 'Público',
@@ -251,6 +312,16 @@ const Dashboard: React.FC = () => {
 
                 // Recarregar documentos para atualizar a lista com o novo documento
                 await listDocuments();
+                
+                // Pequena pausa para garantir que os dados foram sincronizados
+                await new Promise(resolve => setTimeout(resolve, 500));
+                
+                // Forçar atualização do lastUploadTime
+                const timestamp = getLastUpdateTimestamp();
+                if (timestamp) {
+                    setLastUploadTime(timestamp);
+                    console.log('🔄 [Dashboard] Último upload atualizado após upload:', new Date(timestamp));
+                }
             }
         } catch (err) {
             console.error('Upload error:', err);
@@ -299,6 +370,62 @@ const Dashboard: React.FC = () => {
         } catch (err) {
             console.error('❌ [Dashboard] Erro ao obter URL do documento:', err);
             alert("Erro ao carregar documento. Tente novamente.");
+        }
+    };
+
+    // Função para abrir modal de confirmação de exclusão
+    const openDeleteModal = (docId: string) => {
+        setDocumentToDelete(docId);
+        setDeleteModalOpen(true);
+    };
+
+    // Função para confirmar exclusão
+    const handleConfirmDelete = async () => {
+        if (documentToDelete === null) return;
+
+        setDeleteLoading(true);
+        setDeleteError(null);
+
+        try {
+            // Get document name before deleting
+            const docToDelete = documents.find(d => d.id === documentToDelete);
+            const docName = docToDelete?.name || 'Documento desconhecido';
+
+            await deleteDoc(documentToDelete);
+            
+            // Log audit action
+            await auditService.addLog(
+                `🗑️ Arquivo deletado: ${docName}`
+            );
+            
+            setDeleteModalOpen(false);
+            setDocumentToDelete(null);
+        } catch (err) {
+            console.error('Delete failed:', err);
+            
+            // Detectar erro de permissão do RLS
+            let errorMessage = 'Erro ao deletar documento. Tente novamente.';
+            
+            if (err instanceof Error) {
+                const errorStr = err.message.toLowerCase();
+                
+                // Verificar se é erro de permissão (RLS do Supabase)
+                if (errorStr.includes('permission denied') || 
+                    errorStr.includes('row-level security') || 
+                    errorStr.includes('rls') ||
+                    errorStr.includes('unauthorized') ||
+                    errorStr.includes('não autorizado')) {
+                    errorMessage = '🔒 Você não tem permissão para excluir este documento, pois ele foi enviado por outro administrador. Entre em contato com o responsável pelo upload.';
+                } else if (errorStr.includes('not found')) {
+                    errorMessage = '❌ Documento não encontrado. Ele pode ter sido excluído recentemente.';
+                } else {
+                    errorMessage = err.message;
+                }
+            }
+            
+            setDeleteError(errorMessage);
+        } finally {
+            setDeleteLoading(false);
         }
     };
 
@@ -373,20 +500,6 @@ const Dashboard: React.FC = () => {
                     </p>
                 </div>
                 <div className="flex flex-col sm:flex-row gap-3 md:gap-4 items-start md:items-center">
-                    {/* Last Upload Indicator */}
-                    {lastUploadTime && (
-                        <div className="flex items-center gap-2 px-3 md:px-4 py-2 md:py-2.5 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800/50 rounded-lg">
-                            <div className="relative flex items-center justify-center">
-                                <Clock size={16} className="text-green-600 dark:text-green-400" />
-                                <div className="absolute inset-0 rounded-full animate-pulse bg-green-400/20"></div>
-                            </div>
-                            <div className="flex flex-col">
-                                <span className="text-xs font-semibold text-green-700 dark:text-green-300">Último upload</span>
-                                <span className="text-xs text-green-600 dark:text-green-400">{getTimeAgo(lastUploadTime)}</span>
-                            </div>
-                        </div>
-                    )}
-
                     {/* Upload Button */}
                     <button 
                         onClick={openModal}
@@ -480,7 +593,7 @@ const Dashboard: React.FC = () => {
                                                 <Edit2 size={18} />
                                             </button>
                                             <button 
-                                                onClick={() => deleteDoc(doc.id)}
+                                                onClick={() => openDeleteModal(doc.id)}
                                                 className="p-2 text-slate-400 hover:text-red-600 dark:hover:text-red-400 transition-colors hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg cursor-pointer" 
                                                 title="Excluir"
                                             >
@@ -533,7 +646,7 @@ const Dashboard: React.FC = () => {
                                                 <Edit2 size={16} />
                                             </button>
                                             <button 
-                                                onClick={() => deleteDoc(doc.id)}
+                                                onClick={() => openDeleteModal(doc.id)}
                                                 className="p-2 text-slate-400 hover:text-red-600 dark:hover:text-red-400 transition-colors hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg cursor-pointer" 
                                                 title="Excluir"
                                             >
@@ -583,6 +696,19 @@ const Dashboard: React.FC = () => {
             onClose={closeViewModal}
             pdfUrl={selectedPdfUrl}
             title={selectedPdfTitle}
+        />
+
+        <ConfirmDeleteModal
+            isOpen={deleteModalOpen}
+            documentName={documents.find(d => d.id === documentToDelete)?.name || 'Documento'}
+            onConfirm={handleConfirmDelete}
+            onCancel={() => {
+                setDeleteModalOpen(false);
+                setDocumentToDelete(null);
+                setDeleteError(null);
+            }}
+            isDeleting={deleteLoading}
+            error={deleteError}
         />
         </div>
     );

@@ -90,14 +90,13 @@ export class SupabaseDocumentService {
       const documentId = docRef.id;
 
       // Prepare document metadata for Firestore
-      const now = new Date();
       const documentData: DocumentMetadata = {
         id: documentId,
         name: metadata.name || file.name,
         fileUrl: fileUrl, // Use Supabase URL
         storagePath: storagePath, // Store Supabase path for deletion
         uploadedBy: user.id,
-        uploadedAt: now,
+        uploadedAt: Timestamp.now() as any,
         type: file.type.includes('pdf') ? 'pdf' : 'document',
         size: file.size,
         tags: metadata.tags || [],
