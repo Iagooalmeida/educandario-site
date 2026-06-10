@@ -109,7 +109,6 @@ const Dashboard: React.FC = () => {
         const timestamp = getLastUpdateTimestamp();
         if (timestamp) {
             setLastUploadTime(timestamp);
-            console.log('🔄 [Dashboard] Última atualização sincronizada:', new Date(timestamp));
         }
 
         // Também verificar localStorage para sincronização com Transparency
@@ -118,7 +117,6 @@ const Dashboard: React.FC = () => {
             const parsedTimestamp = parseInt(storedTimestamp, 10);
             if (parsedTimestamp > 0 && (!timestamp || parsedTimestamp > timestamp)) {
                 setLastUploadTime(parsedTimestamp);
-                console.log('💾 [Dashboard] Sincronizado com localStorage na montagem:', new Date(parsedTimestamp));
             }
         }
     }, [documents, portalSettings?.updated_at]);
@@ -133,23 +131,16 @@ const Dashboard: React.FC = () => {
     // Listener para atualizações de documentos em tempo real (vindas de Transparency)
     useEffect(() => {
         const handleDocumentsUpdate = (event: Event) => {
-            console.log('🔔 [Dashboard] Recebeu evento documentsUpdated');
             const customEvent = event as CustomEvent;
             const timestamp = customEvent.detail?.timestamp;
-            console.log('🔔 [Dashboard] Timestamp do evento:', timestamp, timestamp ? new Date(timestamp) : 'undefined');
             if (timestamp && timestamp > 0) {
                 setLastUploadTime(timestamp);
-                console.log('✅ [Dashboard] Atualizado com sucesso:', new Date(timestamp));
-            } else {
-                console.log('❌ [Dashboard] Timestamp inválido, ignorando');
             }
         };
 
         window.addEventListener('documentsUpdated', handleDocumentsUpdate);
-        console.log('📌 [Dashboard] Listener de documentsUpdated registrado');
         return () => {
             window.removeEventListener('documentsUpdated', handleDocumentsUpdate);
-            console.log('📌 [Dashboard] Listener de documentsUpdated removido');
         };
     }, []);
 
@@ -158,21 +149,18 @@ const Dashboard: React.FC = () => {
         const handleStorageChange = (event: StorageEvent) => {
             if (event.key === 'documentsLatestTimestamp' && event.newValue) {
                 const timestamp = parseInt(event.newValue, 10);
-                console.log('💾 [Dashboard] Mudança detectada em localStorage:', timestamp, new Date(timestamp));
                 if (timestamp && timestamp > 0) {
                     setLastUploadTime(timestamp);
-                    console.log('✅ [Dashboard] Atualizado via localStorage:', new Date(timestamp));
                 }
             }
         };
 
         window.addEventListener('storage', handleStorageChange);
-        console.log('💾 [Dashboard] Listener de storage registrado');
         return () => {
             window.removeEventListener('storage', handleStorageChange);
-            console.log('💾 [Dashboard] Listener de storage removido');
         };
     }, []);
+
 
     // Listener para atualizações de configurações do portal
     useEffect(() => {
@@ -191,7 +179,6 @@ const Dashboard: React.FC = () => {
                 })();
                 if (timestamp) {
                     setLastUploadTime(timestamp);
-                    console.log('🔄 [Dashboard] Configurações atualizadas em tempo real:', new Date(timestamp));
                 }
             }
         };
@@ -320,11 +307,10 @@ const Dashboard: React.FC = () => {
                 const timestamp = getLastUpdateTimestamp();
                 if (timestamp) {
                     setLastUploadTime(timestamp);
-                    console.log('🔄 [Dashboard] Último upload atualizado após upload:', new Date(timestamp));
                 }
             }
         } catch (err) {
-            console.error('Upload error:', err);
+            // Upload error
             alert('Erro ao fazer upload');
         } finally {
             setIsUploadProcessing(false);
@@ -355,7 +341,6 @@ const Dashboard: React.FC = () => {
     // Função para visualizar documento
     const handleView = async (documentId: string, name: string) => {
         try {
-            console.log('📄 [Dashboard] Buscando URL do documento:', documentId);
             const url = await getURL(documentId);
             
             if (!url) {
@@ -366,9 +351,7 @@ const Dashboard: React.FC = () => {
             setSelectedPdfUrl(url);
             setSelectedPdfTitle(name);
             setIsViewModalOpen(true);
-            console.log('✅ [Dashboard] URL obtida com sucesso:', url);
         } catch (err) {
-            console.error('❌ [Dashboard] Erro ao obter URL do documento:', err);
             alert("Erro ao carregar documento. Tente novamente.");
         }
     };
@@ -401,7 +384,7 @@ const Dashboard: React.FC = () => {
             setDeleteModalOpen(false);
             setDocumentToDelete(null);
         } catch (err) {
-            console.error('Delete failed:', err);
+            // Delete failed
             
             // Detectar erro de permissão do RLS
             let errorMessage = 'Erro ao deletar documento. Tente novamente.';
@@ -469,7 +452,7 @@ const Dashboard: React.FC = () => {
 
             closeEditModal();
         } catch (err) {
-            console.error('Edit error:', err);
+            // Edit error
             alert('Erro ao atualizar documento');
         } finally {
             setIsEditProcessing(false);

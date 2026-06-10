@@ -103,7 +103,7 @@ const Login: React.FC = () => {
             setEmail('');
             setPassword('');
             
-            console.log('✅ Login realizado com sucesso:', user);
+            // Login realizado com sucesso
             
             // Redirecionar para o dashboard após 1.5 segundos
             setTimeout(() => {
@@ -138,7 +138,7 @@ const Login: React.FC = () => {
             }
             
             setError(userFriendlyError);
-            console.error('❌ Erro ao fazer login:', err?.code, err?.message);
+            // Erro ao fazer login
         }
     };
 
@@ -156,9 +156,9 @@ const Login: React.FC = () => {
     const handleResetPassword = async (resetEmail: string) => {
         try {
             await firebaseAuthService.resetPassword(resetEmail);
-            console.log('✅ Email de reset enviado para:', resetEmail);
+            // Email de reset enviado
         } catch (err: any) {
-            console.error('❌ Erro ao enviar email de reset:', err);
+            // Erro ao enviar email de reset
             throw err;
         }
     };

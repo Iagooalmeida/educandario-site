@@ -8,7 +8,7 @@ const Contact: React.FC = () => {
 
     // Listener para mudanças nas configurações (debugging)
     useEffect(() => {
-        console.log('🔄 [Contact Page] Configurações atualizadas:', portalSettings);
+        // Configurações atualizadas
     }, [portalSettings]);
 
     // Se ainda está carregando, mostrar mensagem

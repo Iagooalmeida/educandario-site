@@ -29,15 +29,10 @@ export class FirebaseAuthService implements AuthService {
    * Converter Firebase User para AuthUser
    */
   private async firebaseUserToAuthUser(firebaseUser: User): Promise<AuthUser> {
-    console.log('🔄 [DEBUG] Convertendo Firebase User para AuthUser:', firebaseUser.email);
-    
     // Já temos o token de admin no claims
     const idTokenResult = await firebaseUser.getIdTokenResult();
-    console.log('📋 [DEBUG] Token obtido. Verificando claims de admin...');
-    console.log('👤 [DEBUG] Custom claims:', idTokenResult.claims);
     
     const isAdmin = idTokenResult.claims.admin === true;
-    console.log('🔐 [DEBUG] isAdmin:', isAdmin);
 
     const authUser = {
       id: firebaseUser.uid,
@@ -49,7 +44,6 @@ export class FirebaseAuthService implements AuthService {
         : new Date(),
     };
     
-    console.log('✅ [DEBUG] AuthUser criado:', authUser);
     return {
       ...authUser,
       role: (authUser.role as 'admin' | 'user') || 'user',
@@ -61,14 +55,9 @@ export class FirebaseAuthService implements AuthService {
    */
   async login(email: string, password: string): Promise<AuthUser> {
     try {
-      console.log('🔑 [DEBUG] Tentando login com email:', email);
       // Persistência já foi configurada globalmente no carregamento do módulo
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
-      console.log('✅ [DEBUG] Login bem-sucedido para:', userCredential.user.email);
-      console.log('📝 [DEBUG] Usuário UID:', userCredential.user.uid);
-      console.log('⏱️ [DEBUG] Sessão será salva automaticamente pelo Firebase com persistência configurada');
       const authUser = await this.firebaseUserToAuthUser(userCredential.user);
-      console.log('✅ [DEBUG] AuthUser criado:', { email: authUser.email, role: authUser.role });
       return authUser;
     } catch (error: unknown) {
       const err = error as { code?: string; message?: string };
@@ -92,9 +81,7 @@ export class FirebaseAuthService implements AuthService {
    */
   async logout(): Promise<void> {
     try {
-      console.log('🚪 [DEBUG] Executando logout...');
       await signOut(auth);
-      console.log('✅ [DEBUG] Logout bem-sucedido. Sessão foi limpa do Firebase');
     } catch (error: unknown) {
       const err = error as { code?: string; message?: string };
       console.error('❌ [DEBUG] Erro ao fazer logout:', error);

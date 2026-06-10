@@ -45,11 +45,9 @@ export const PortalSettingsProvider: React.FC<{ children: React.ReactNode }> = (
     try {
       const data = await portalSettingsService.getSettings();
       setSettings(data);
-      console.log('✅ [PortalSettingsContext] Configurações carregadas:', data);
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Erro ao carregar configurações';
       setError(errorMsg);
-      console.error('❌ [PortalSettingsContext] Erro ao buscar configurações:', err);
     } finally {
       setLoading(false);
     }
@@ -61,7 +59,6 @@ export const PortalSettingsProvider: React.FC<{ children: React.ReactNode }> = (
       setError(null);
       const updated = await portalSettingsService.updateSettings(updates);
       setSettings(updated);
-      console.log('✅ [PortalSettingsContext] Configurações atualizadas:', updated);
       
       // Dispara evento customizado para notificar outros listeners
       window.dispatchEvent(new CustomEvent('portalSettingsUpdated', { detail: updated }));
@@ -88,7 +85,6 @@ export const PortalSettingsProvider: React.FC<{ children: React.ReactNode }> = (
   useEffect(() => {
     const handleSettingsUpdate = (event: Event) => {
       const customEvent = event as CustomEvent;
-      console.log('🔄 [PortalSettingsContext] Atualização detectada:', customEvent.detail);
       setSettings(customEvent.detail);
     };
 

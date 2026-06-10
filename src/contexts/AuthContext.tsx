@@ -26,12 +26,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   // Listener GLOBAL - montado apenas uma vez
   useEffect(() => {
-    console.log('🔍 [AuthContext] Inicializando listener global de autenticação');
     
     // Criar listener apenas se não existir
     if (!unsubscribeRef.current) {
       unsubscribeRef.current = firebaseAuthService.onAuthStateChanged((authUser) => {
-        console.log('🔍 [AuthContext] Firebase retornou:', authUser?.email || 'null');
         setUser(authUser);
         setError(null);
         setLoading(false);
@@ -100,7 +98,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       // ✅ MUDANÇA: Logout automático REMOVIDO
       // O SecuritySection.tsx agora controla o countdown de 5 segundos e o logout
       // Este aqui estava conflitando com o countdown do modal de sucesso
-      console.log('✅ [AuthContext] Senha alterada. SecuritySection controlará o logout com countdown');
       setLoading(false);
     } catch (err) {
       const authError = err instanceof AuthError ? err : new AuthError('unknown', String(err));

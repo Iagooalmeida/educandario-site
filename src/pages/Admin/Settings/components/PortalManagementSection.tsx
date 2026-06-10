@@ -57,7 +57,7 @@ const PortalManagementSection: React.FC = () => {
 
     const handleSavePortal = async () => {
         if (!editingPortalData.description.trim()) {
-            console.error('A descrição é obrigatória');
+            // A descrição é obrigatória
             return;
         }
         
@@ -88,7 +88,7 @@ const PortalManagementSection: React.FC = () => {
             setTimeout(() => setPortalSuccess(false), 3000);
             setEditingPortal(false);
         } catch (error) {
-            console.error('Erro ao salvar configurações do portal:', error);
+            // Erro ao salvar configurações do portal
         }
     };
 

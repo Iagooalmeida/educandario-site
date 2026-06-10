@@ -99,7 +99,7 @@ const Transparency: React.FC = () => {
 
             setCategories(updatedCategories);
         } catch (error) {
-            console.error('Erro ao carregar documentos:', error);
+            // Erro ao carregar documentos
             // Manter categorias vazias em caso de erro
             setCategories(baseCategories.map(cat => ({ ...cat, items: [] })));
         } finally {

@@ -32,7 +32,7 @@ import { firebaseAuthService } from '@/services/firebase/auth';
                 return profile.displayName || 'Admin';
             }
         } catch (error) {
-            console.error('Erro ao carregar perfil:', error);
+            // Erro ao carregar perfil
         }
         return 'Admin';
     });
@@ -50,7 +50,7 @@ import { firebaseAuthService } from '@/services/firebase/auth';
                 return profile.role || 'Admin';
             }
         } catch (error) {
-            console.error('Erro ao carregar role:', error);
+            // Erro ao carregar role
         }
         return 'Admin';
     });
@@ -127,10 +127,9 @@ import { firebaseAuthService } from '@/services/firebase/auth';
     const handleLogout = async () => {
         try {
             await firebaseAuthService.logout();
-            console.log('✅ Logout realizado com sucesso');
             navigate('/admin');
         } catch (error) {
-            console.error('❌ Erro ao fazer logout:', error);
+            // Erro ao fazer logout
         }
     };
 

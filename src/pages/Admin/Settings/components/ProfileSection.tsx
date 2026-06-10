@@ -49,13 +49,13 @@ const ProfileSection: React.FC = () => {
                     setProfileSuccess(true);
                     setTimeout(() => setProfileSuccess(false), 3000);
                 } catch (error) {
-                    console.error('Erro ao fazer upload do avatar:', error);
+                    // Erro ao fazer upload do avatar
                 }
             };
             reader.readAsDataURL(file);
         } catch (error) {
             const errorMsg = error instanceof Error ? error.message : 'Erro ao validar imagem';
-            console.error('Erro ao fazer upload:', errorMsg);
+            // Erro ao fazer upload
         }
     };
 
@@ -70,7 +70,7 @@ const ProfileSection: React.FC = () => {
             setProfileSuccess(true);
             setTimeout(() => setProfileSuccess(false), 3000);
         } catch (error) {
-            console.error('Erro ao remover avatar:', error);
+            // Erro ao remover avatar
         }
     };
 
@@ -84,7 +84,7 @@ const ProfileSection: React.FC = () => {
 
     const handleSaveProfile = async () => {
         if (!editingProfileData.displayName.trim()) {
-            console.error('O nome é obrigatório');
+            // O nome é obrigatório
             return;
         }
         
@@ -98,7 +98,7 @@ const ProfileSection: React.FC = () => {
             setTimeout(() => setProfileSuccess(false), 3000);
             setEditingProfile(false);
         } catch (error) {
-            console.error('Erro ao salvar perfil:', error);
+            // Erro ao salvar perfil
         }
     };
 

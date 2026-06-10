@@ -22,15 +22,13 @@ if (!firebaseConfig.projectId) {
   console.error('❌ ERRO: VITE_FIREBASE_PROJECT_ID não está definido no .env');
   console.error('🔧 Verifique se o arquivo .env foi criado corretamente');
 } else {
-  console.log('✅ Firebase initializing...');
-  console.log('📝 Project:', firebaseConfig.projectId);
+  // Firebase config loaded
 }
 
 // Inicializar Firebase
 let app;
 try {
   app = initializeApp(firebaseConfig);
-  console.log('✅ Firebase initialized successfully!');
 } catch (error) {
   console.error('❌ Firebase initialization error:', error);
 }
@@ -43,12 +41,9 @@ export const storage = getStorage(app!);
 // 🔍 [DEBUG] Configurar persistência com logs
 import { setPersistence, browserLocalPersistence } from 'firebase/auth';
 
-console.log('🔍 [DEBUG] Inicializando Firebase Auth...');
-
 setPersistence(auth, browserLocalPersistence)
   .then(() => {
-    console.log('✅ [DEBUG] Persistência LOCAL (IndexedDB/localStorage) configurada com sucesso!');
-    console.log('💾 [DEBUG] Firebase agora salvará sessões no navegador');
+    // Persistência LOCAL configurada
   })
   .catch((err) => {
     console.error('❌ [DEBUG] FALHA na persistência:', err);

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { FileText, Plus, Trash2, Eye, Lock, Globe, Filter, X, Search, Edit, ChevronLeft, ChevronRight, Clock, AlertCircle } from 'lucide-react';
 import UploadModal from '@/components/Admin/UploadModal';
@@ -81,7 +82,6 @@ const TransparencyAdmin: React.FC = () => {
         const timestamp = getLastUpdateTimestampMemo();
         if (timestamp) {
             setLastUploadTime(timestamp);
-            console.log('🔄 [Transparency] Última atualização sincronizada:', new Date(timestamp));
         }
     }, [getLastUpdateTimestampMemo]);
 
@@ -126,14 +126,11 @@ const TransparencyAdmin: React.FC = () => {
     // Helper: calcular timestamp do documento mais recente
     const calculateNewestTimestamp = (docs: DocumentMetadata[]): number | null => {
         if (!docs || docs.length === 0) {
-            console.log('❌ [calculateNewestTimestamp] Sem documentos');
             return null;
         }
         
-        console.log('📊 [calculateNewestTimestamp] Processando', docs.length, 'documentos');
-        
         let maxTime = 0;
-        docs.forEach((doc, idx) => {
+        docs.forEach((doc) => {
             const timestamp = doc.updatedAt || doc.uploadedAt;
             let docTime = 0;
             
@@ -145,14 +142,11 @@ const TransparencyAdmin: React.FC = () => {
                 docTime = new Date(timestamp).getTime();
             }
             
-            console.log(`  Doc ${idx}: ${doc.name} -> ${docTime} (${new Date(docTime)})`);
-            
             if (docTime > maxTime) {
                 maxTime = docTime;
             }
         });
         
-        console.log('✅ [calculateNewestTimestamp] Max time:', maxTime > 0 ? new Date(maxTime) : 'null');
         return maxTime > 0 ? maxTime : null;
     };
 
@@ -180,32 +174,23 @@ const TransparencyAdmin: React.FC = () => {
             
             // Recarregar documents list para sincronizar com novo documento
             const listResult = await supabaseDocumentService.listDocuments();
-            console.log('📤 [Upload] listDocuments retornou:', listResult.documents.length, 'documentos');
-            console.log('📤 [Upload] Documentos:', listResult.documents.map(d => ({ id: d.id, name: d.name, updatedAt: d.updatedAt, uploadedAt: d.uploadedAt })));
             
             // Calcular timestamp baseado no resultado direto
             const newestTimestamp = calculateNewestTimestamp(listResult.documents);
-            console.log('📤 [Upload] Timestamp calculado:', newestTimestamp);
             
             if (newestTimestamp && newestTimestamp > 0) {
                 setLastUploadTime(newestTimestamp);
-                console.log('✅ [Transparency] Timestamp atualizado:', new Date(newestTimestamp));
                 
                 // Salvar em localStorage para sincronizar com outras abas
                 localStorage.setItem('documentsLatestTimestamp', newestTimestamp.toString());
-                console.log('💾 [Transparency] Timestamp salvo em localStorage');
                 
                 // Disparar evento para que Dashboard receba a atualização
-                console.log('🔔 [Upload] Disparando evento documentsUpdated com timestamp:', newestTimestamp);
                 window.dispatchEvent(new CustomEvent('documentsUpdated', { 
                     detail: { timestamp: newestTimestamp } 
                 }));
-                console.log('✅ [Upload] Evento disparado!');
-            } else {
-                console.log('❌ [Upload] Timestamp inválido, evento não disparado');
             }
         } catch (err) {
-            console.error('Upload failed:', err);
+            // Upload failed
         } finally {
             setIsUploadProcessing(false);
         }
@@ -250,7 +235,7 @@ const TransparencyAdmin: React.FC = () => {
             setDeleteModalOpen(false);
             setDocumentToDelete(null);
         } catch (err) {
-            console.error('Delete failed:', err);
+            // Delete failed
             
             // Detectar erro de permissão do RLS
             let errorMessage = 'Erro ao deletar documento. Tente novamente.';
@@ -309,29 +294,20 @@ const TransparencyAdmin: React.FC = () => {
 
             // Recarregar documents list para sincronizar mudanças
             const listResult = await supabaseDocumentService.listDocuments();
-            console.log('✏️ [Edit] listDocuments retornou:', listResult.documents.length, 'documentos');
-            console.log('✏️ [Edit] Documentos:', listResult.documents.map(d => ({ id: d.id, name: d.name, updatedAt: d.updatedAt, uploadedAt: d.uploadedAt })));
             
             // Calcular timestamp baseado no resultado direto
             const newestTimestamp = calculateNewestTimestamp(listResult.documents);
-            console.log('✏️ [Edit] Timestamp calculado:', newestTimestamp);
             
             if (newestTimestamp && newestTimestamp > 0) {
                 setLastUploadTime(newestTimestamp);
-                console.log('✅ [Transparency] Timestamp atualizado após edição:', new Date(newestTimestamp));
                 
                 // Salvar em localStorage para sincronizar com outras abas
                 localStorage.setItem('documentsLatestTimestamp', newestTimestamp.toString());
-                console.log('💾 [Transparency] Timestamp salvo em localStorage');
                 
                 // Disparar evento para que Dashboard receba a atualização
-                console.log('🔔 [Edit] Disparando evento documentsUpdated com timestamp:', newestTimestamp);
                 window.dispatchEvent(new CustomEvent('documentsUpdated', { 
                     detail: { timestamp: newestTimestamp } 
                 }));
-                console.log('✅ [Edit] Evento disparado!');
-            } else {
-                console.log('❌ [Edit] Timestamp inválido, evento não disparado');
             }
 
             // Log audit
@@ -351,7 +327,7 @@ const TransparencyAdmin: React.FC = () => {
             const now = Date.now();
             localStorage.setItem('lastDocumentUpdate', now.toString());
         } catch (err) {
-            console.error('Update failed:', err);
+            // Update failed
         }
     };
 
