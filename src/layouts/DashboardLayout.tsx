@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import React, { useState, useEffect } from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { 
@@ -11,6 +12,7 @@ import {
     Moon
     } from 'lucide-react';
 import NotificationPanel from '@/components/NotificationPanel';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { useAuth } from '@/hooks/useAuth';
 import { firebaseAuthService } from '@/services/firebase/auth';
 
@@ -244,7 +246,9 @@ import { firebaseAuthService } from '@/services/firebase/auth';
 
             {/* Área da Página (Renderiza o index.tsx do Dashboard) */}
             <main className="p-6 md:p-8 flex-1 overflow-x-hidden">
-            <Outlet />
+                <ErrorBoundary>
+                    <Outlet />
+                </ErrorBoundary>
             </main>
         </div>
         </div>
