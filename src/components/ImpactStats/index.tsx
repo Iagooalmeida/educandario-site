@@ -21,7 +21,7 @@ const ImpactStats: React.FC = () => {
         },
         {
             icon: <BookOpen className="text-orange-500" size={32} />,
-            value: "10+",
+            value: "12+",
             label: "Projetos Ativos"
         },
         {

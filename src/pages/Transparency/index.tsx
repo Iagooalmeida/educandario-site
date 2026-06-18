@@ -72,16 +72,51 @@ const Transparency: React.FC = () => {
             // Carregar apenas documentos públicos
             const result = await firebaseDocumentService.listDocuments({ public: true });
             
-            // Agrupar documentos por categoria
+            // --- ONDE A MUDANÇA FOI FEITA ---
+            // Ordena a lista bruta recebida do Firestore de forma decrescente com base no 'uploadedAt' ou 'updatedAt'
+            const sortedDocuments = [...result.documents].sort((a: DocumentMetadata, b: DocumentMetadata) => {
+                // Validação estrita para o documento A
+                const timeA = a.uploadedAt && typeof a.uploadedAt === 'object' && 'toMillis' in a.uploadedAt
+                    ? (a.uploadedAt as { toMillis: () => number }).toMillis()
+                    : a.uploadedAt instanceof Date 
+                        ? a.uploadedAt.getTime() 
+                        : new Date((a.uploadedAt as unknown as string) || 0).getTime();
+
+                // Validação estrita para o documento B
+                const timeB = b.uploadedAt && typeof b.uploadedAt === 'object' && 'toMillis' in b.uploadedAt
+                    ? (b.uploadedAt as { toMillis: () => number }).toMillis()
+                    : b.uploadedAt instanceof Date 
+                        ? b.uploadedAt.getTime() 
+                        : new Date((b.uploadedAt as unknown as string) || 0).getTime();
+
+                return timeB - timeA; // Inverte para decrescente (mais recente no topo)
+            });
+
+            // Agrupar documentos já ordenados por categoria
             const grouped: Record<string, DocumentItem[]> = {};
             
-            result.documents.forEach((doc: DocumentMetadata) => {
+            sortedDocuments.forEach((doc: DocumentMetadata) => {
                 const fireCat = doc.category || 'Geral';
                 if (!grouped[fireCat]) {
                     grouped[fireCat] = [];
                 }
                 
-                const year = doc.tags?.[0] || new Date(doc.uploadedAt).getFullYear().toString() || 'N/A';
+                // Conversão segura da data para pegar o ano
+                const rawDate = doc.uploadedAt;
+                let parsedTime = 0;
+
+                if (rawDate) {
+                    if (typeof rawDate === 'object' && 'toMillis' in rawDate) {
+                        parsedTime = (rawDate as { toMillis: () => number }).toMillis();
+                    } else if (rawDate instanceof Date) {
+                        parsedTime = rawDate.getTime();
+                    } else {
+                        parsedTime = new Date((rawDate as unknown as string) || '').getTime();
+                    }
+                }
+
+const parsedDate = new Date(parsedTime);
+const year = doc.tags?.[0] || (parsedTime !== 0 && !isNaN(parsedDate.getTime()) ? parsedDate.getFullYear().toString() : 'N/A');
                 
                 grouped[fireCat].push({
                     id: doc.id,
@@ -90,6 +125,7 @@ const Transparency: React.FC = () => {
                     fileUrl: doc.fileUrl || doc.url || ''
                 });
             });
+            // ---------------------------------
 
             // Combinar com estrutura base
             const updatedCategories = baseCategories.map(baseCat => ({
@@ -98,6 +134,7 @@ const Transparency: React.FC = () => {
             }));
 
             setCategories(updatedCategories);
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         } catch (error) {
             // Erro ao carregar documentos
             // Manter categorias vazias em caso de erro
