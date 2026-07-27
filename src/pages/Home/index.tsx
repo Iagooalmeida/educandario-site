@@ -44,9 +44,9 @@ const Home: React.FC = () => {
                                     className="w-full h-auto object-cover transform hover:scale-105 transition-transform duration-700"
                                 />
                                 {/* Badge flutuante sobre a imagem */}
-                                <div className="absolute bottom-6 right-6 bg-white/90 dark:bg-slate-800/90 backdrop-blur-md px-6 py-3 rounded-2xl shadow-lg border border-white/50 dark:border-slate-700/50">
-                                    <p className="text-blue-900 dark:text-blue-300 font-black text-xl leading-none">{yearsOfHistory} anos</p>
-                                    <p className="text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-wider mt-1">Transformando vidas</p>
+                                <div className="absolute bottom-3 right-3 sm:bottom-6 sm:right-6 bg-white/90 dark:bg-slate-800/90 backdrop-blur-md px-3 py-2 sm:px-6 sm:py-3 rounded-xl sm:rounded-2xl shadow-lg border border-white/50 dark:border-slate-700/50 max-w-[calc(100%-1.5rem)] sm:max-w-none">
+                                    <p className="text-blue-900 dark:text-blue-300 font-black text-base sm:text-xl leading-none">{yearsOfHistory} anos</p>
+                                    <p className="text-slate-500 dark:text-slate-400 text-[10px] sm:text-xs font-bold uppercase tracking-wide sm:tracking-wider mt-0.5 sm:mt-1">Transformando vidas</p>
                                 </div>
                             </div>
                         </div>
